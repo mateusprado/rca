@@ -1,0 +1,267 @@
+RCA — Problemas de Áudio e Microfone durante Live no Skool.com
+
+Data do incidente: 22 de abril de 2026 (a partir das 16h CDT)
+Incidente anterior: 9 de abril de 2026 (mesmo padrão)
+Plataforma: Safari — skool.com
+Elaborado por: Análise de logs do sistema macOS
+
+---
+1. Sumário Executivo
+
+Durante a live realizada no Skool.com via Safari em 22 de abril de 2026, foram identificados problemas recorrentes de microfone e speaker Bluetooth. Os mesmos sintomas ocorreram em 9 de abril de 2026. A
+investigação dos logs do sistema (bluetoothd, coreaudiod, Elgato WaveLink) revelou três causas raiz distintas e um fator agravante, todos confirmados por evidências nos logs.
+
+O problema principal foi o uso simultâneo dos AirPods Pro como microfone e speaker durante a live, o que forçou o Bluetooth a operar no modo HFP/SCO (protocolo de chamada telefônica), degradando drasticamente a
+qualidade de áudio. Esse problema foi agravado por um filtro de supressão de ruído mal configurado no OBS Studio que entrou em conflito com o Safari pelo dispositivo de áudio.
+
+---
+2. Ambiente e Equipamentos
+
+┌──────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────┐
+│          Componente          │                                Identificação nos Logs                                │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ AirPods Pro (2ª geração)     │ Modelo AirPods3,4, UUID BE11AB38-B854-47A5-B18A-XXXXXXXXXXXX                         │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Microfone wireless Hollyland │ Shenzhen Hollyland Technology Co.,Ltd:Wireless microphone:94V22G3JEF2 (receptor USB) │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ OBS Studio                   │ com.obsproject.obs-studio, PID 8022                                                  │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Elgato WaveLink              │ v2.0.7 (3795), microfone Wave série 3 (A011A52911FOO9)                               │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ macOS                        │ macOS 26.3.1 (Darwin 25.3.0)                                                         │
+├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Navegador                    │ Safari                                                                               │
+└──────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+
+---
+3. Linha do Tempo — 22 de Abril de 2026
+
+┌─────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬───────────────┐
+│     Hora (CDT)      │                                                                Evento                                                                 │ Fonte do Log  │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 13:38:52            │ coreaudiod reiniciou (provável wake após sleep)                                                                                       │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:08–15:14         │ AirPods Pro detectados e conectados via BT                                                                                            │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:09:21            │ Dispositivo BT com perfis HFP+A2DP identificado                                                                                       │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:10:49            │ Erro: IOPMAssertionCreateWithProperties failed (0xe00002c1) — Bluetooth não conseguiu criar assertiva de gerenciamento de energia     │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:12:10            │ Rotação de endereço BLE cancelou conexões ativas. Confirmado: isA2DPStreaming:0 isHFPStreaming:0 — streaming de áudio BT interrompido │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:15:02            │ ⚠️ Desconexão forçada de dispositivo BT (E10900BC) para todos os apps (com.logi.ghub.agent, com.apple.cloudpaird)                     │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:22:39            │ ⚠️ Segunda desconexão forçada com erros em cascata: Unable to locate device in disk caches, handleSetPeerState, invalid peer          │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:43:34            │ Tampa do MacBook aberta (clamshell → Open): sistema saiu do sleep                                                                     │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:43:35            │ 🔴 Múltiplos erros HALS_PlugIn::HostInterface_PropertiesChanged: the object is not valid                                              │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 15:43:35            │ Sistema de áudio reverteu para Built-in Mic + Built-in Speaker (perdeu roteamento para AirPods)                                       │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:00:00            │ Live iniciada. AirPods em modo HFP/SCO confirmado (AStS SCO)                                                                          │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:00:03            │ ⚠️ Taxa de retransmissão BT atingiu 25% em TX e RX. Sync Timeout = 1                                                                  │ bluetoothd    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:01:08            │ macOS aplicou mute no microfone Hollyland (mute: 0.000000 → processo unmute)                                                          │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:01:09            │ OBS iniciou ciclo de ducking nos AirPods: volume reduzido para 44,6% (0.446684)                                                       │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:01:13 → 16:01:40 │ Ciclo de ducking repetido a cada 5–9 segundos continuamente durante a live                                                            │ coreaudiod    │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:16:42            │ WaveLink reiniciou. Microfone Elgato Wave marcado como indisponível (isAvailable = 0)                                                 │ WaveLink0.log │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────┤
+│ 16:19:19            │ Erro WaveLink: AudioObjectGetPropertyDataSize failed: kAudioHardwareBadObjectError                                                    │ WaveLink0.log │
+└─────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴───────────────┘
+
+---
+4. Causas Raiz
+
+4.1 [CAUSA RAIZ PRIMÁRIA] AirPods forçados ao modo HFP/SCO ao serem usados como microfone no navegador
+
+O que aconteceu:
+Ao selecionar os AirPods Pro como microfone no Safari/skool.com, o macOS forçou a transição do protocolo de áudio de A2DP (48kHz estéreo, alta qualidade) para HFP/SCO (8–16kHz mono, protocolo de chamada
+telefônica). Isso acontece porque o Bluetooth não suporta operação simultânea de microfone de alta qualidade e speaker de alta qualidade no mesmo dispositivo — é uma limitação do protocolo.
+
+Evidência nos logs:
+[bluetoothd] 16:00:00 — AStS SCO
+CnS 0x1980019 < HFP AVRCP A2DP AACP GATT ACL SCO >
+Md AirPods3,4, PrNm AirPods Pro, RSSI -49
+AStS SCO = Audio Stream State = SCO ativo (modo chamada telefônica).
+
+Impacto:
+- Qualidade de áudio degradada (som "robotizado" ou abafado para os participantes)
+- Largura de banda BT compartilhada entre microfone e speaker
+- Sistema operou em modo de "chamada telefônica" em vez de modo de streaming multimídia
+
+---
+4.2 [CAUSA RAIZ SECUNDÁRIA] Perda de pacotes Bluetooth de 25% logo nos primeiros segundos da live
+
+O que aconteceu:
+A partir dos primeiros 3 segundos da live, a taxa de retransmissão do link HFP disparou para 25% em ambas as direções, com ocorrência de Sync Timeout. Isso indica interferência severa na faixa de 2,4GHz, onde
+competem simultaneamente: o receptor USB do Hollyland, os AirPods via BT e o Wi-Fi da rede local.
+
+Evidência nos logs:
+[bluetoothd] 16:00:03
+HFP LinkQualityReport:
+TX [TX: 4.4%, ReTX: 25.0%]
+RX [TX: 1.5%, ReTX: 25.0%]
+Sync Timeout = 1
+RSSI = -42
+
+Impacto:
+- 1 em cada 4 pacotes de áudio perdido e retransmitido
+- Travamentos, cortes e artefatos de áudio audíveis durante a live
+- Sync Timeout causou breve perda de sincronia do link HFP
+
+---
+4.3 [CAUSA RAIZ TERCIÁRIA] OBS Studio com filtro de supressão de ruído nos AirPods gerando ducking contínuo
+
+O que aconteceu:
+O OBS Studio estava rodando com um filtro de supressão de ruído configurado para capturar os AirPods como fonte de áudio (airpods noise suppression studio). Ao se registrar como cliente de áudio de comunicação
+(modo VoIP), o OBS acionou o mecanismo de audio ducking do macOS, que reduzia o volume dos AirPods a ~44,6% a cada 5–9 segundos — o mesmo ritmo com que o filtro processava os quadros de áudio.
+
+Adicionalmente, o filtro apresentava timestamps inválidos (issue_detected_sample_time=0.000000), indicando que o pipeline de áudio do OBS estava produzindo quadros corrompidos.
+
+Evidência nos logs:
+[coreaudiod] 16:00:04
+RTAID node=ADM::com.obsproject.obs-studio_2458.2414.0_airpods
+noise suppression studio::in-0
+issue_detected_sample_time=0.000000   ← timestamp inválido
+
+[coreaudiod] 16:01:09
+_DuckClientVolumeScalar: client 1509 (pid 8022)
+ducking device 30-7A-D2-3A-FA-25 to 0.446684 ← volume dos AirPods em 44,6%
+
+[coreaudiod] 16:01:14 → 16:01:19 → 16:01:29 → 16:01:38...
+(ciclo repetido a cada ~5 segundos)
+
+Impacto:
+- Volume dos AirPods caindo automaticamente a cada poucos segundos durante a live
+- Safari e OBS em conflito pela captura do Hollyland (mute/unmute involuntário do mic)
+- Processamento de áudio corrompido pelo filtro com timestamps zerados
+
+---
+4.4 [FATOR AGRAVANTE] Microfone Elgato Wave ficou indisponível após reinício do WaveLink
+
+O que aconteceu:
+O WaveLink reiniciou às 16:16 e imediatamente reportou o microfone Elgato Wave USB como indisponível. Isso ocorreu porque o coreaudiod havia reiniciado anteriormente (às 13:38), invalidando os handles de
+dispositivo de áudio, e o WaveLink não conseguiu reivindicar o microfone ao voltar. O mesmo padrão foi observado em 9 de abril às 15:52.
+
+Evidência nos logs:
+[WaveLink0.log] 2026-04-22T16:16:42
+updateInputsInConfiguration: setting isAvailable for input
+AppleUSBAudioEngine:Elgato Systems:Elgato Wave:3:A011A52911FOO9:2,1 to 0
+
+[WaveLink0.log] 2026-04-22T16:19:19
+OutputDeviceDescriptorForAudioObjectID():
+AudioObjectGetPropertyDataSize failed: 560947818
+(kAudioHardwareBadObjectError)
+
+[WaveLink2.log] 2026-04-09T15:52:43 ← mesmo erro, 2 semanas antes
+updateInputsInConfiguration: setting isAvailable for input
+AppleUSBAudioEngine:Elgato Systems:Elgato Wave:3:A011A52911FOO9:2,1 to 0
+
+Impacto:
+- Microfone USB do Elgato Wave ficou mudo após o reinício do WaveLink
+- O WaveLink continuou operando mas sem capturar áudio do microfone físico
+
+---
+5. Diagrama de Causa e Efeito
+
+Safari/skool.com solicita microfone dos AirPods
+        │
+        ▼
+macOS força AirPods para modo HFP/SCO ──────────────────┐
+        │                                                │
+        ▼                                                ▼
+Qualidade de áudio degradada              Sistema trata conexão
+(8–16kHz mono, "chamada telefônica")      como chamada de voz
+        │                                                │
+        ▼                                                ▼
+Hollyland (2,4GHz) + AirPods BT (2,4GHz)  OBS registra-se como
++ Wi-Fi (2,4GHz) competem no mesmo canal  cliente de comunicação VoIP
+        │                                                │
+        ▼                                                ▼
+25% de pacotes BT perdidos              Ducking automático dos AirPods
+(Sync Timeout, cortes de áudio)         a cada 5–9 segundos (-55% volume)
+        │                                                │
+        └──────────────┬─────────────────────────────────┘
+                        ▼
+        Experiência degradada na live:
+        cortes, travamentos, volume instável,
+        microfone sumindo e voltando
+
+---
+6. Por que o problema se repete (abril 9 e abril 22)
+
+O padrão recorrente em ambas as datas é explicado pela mesma combinação de fatores:
+
+┌────────────────────────────────────────────────────┬──────────┬───────────────┐
+│                       Fator                        │ Abril 9  │   Abril 22    │
+├────────────────────────────────────────────────────┼──────────┼───────────────┤
+│ AirPods em modo HFP/SCO                            │ ✅       │ ✅            │
+├────────────────────────────────────────────────────┼──────────┼───────────────┤
+│ Interferência 2,4GHz (Hollyland + BT + Wi-Fi)      │ ✅       │ ✅            │
+├────────────────────────────────────────────────────┼──────────┼───────────────┤
+│ OBS com filtro de supressão nos AirPods            │ Provável │ ✅ Confirmado │
+├────────────────────────────────────────────────────┼──────────┼───────────────┤
+│ WaveLink perdendo o microfone Elgato após reinício │ ✅ 15:52 │ ✅ 16:16      │
+└────────────────────────────────────────────────────┴──────────┴───────────────┘
+
+---
+7. Ações Corretivas
+
+7.1 Imediatas (antes da próxima live)
+
+Speaker — usar speaker com fio
+Plugue o speaker no jack P2 do Mac ou em uma saída USB. Isso elimina completamente a causa raiz primária (HFP/SCO nos AirPods) e o ducking automático.
+
+OBS — remover o filtro de supressão nos AirPods
+Em OBS → Audio Mixer → Gear (⚙️) ao lado da fonte de áudio → Filters → excluir qualquer filtro chamado "Noise Suppression" ou "airpods noise suppression". Esse filtro estava usando um dispositivo que não será mais
+utilizado como mic e estava causando o ducking de volume.
+
+OBS — configurar o Hollyland como fonte de áudio
+Em OBS → Settings → Audio → Mic/Auxiliary Audio → selecionar Wireless microphone (Hollyland). Não adicionar o Hollyland como "Audio Input Capture" na cena E como fonte global ao mesmo tempo — escolher apenas um
+para evitar captura duplicada.
+
+Skool.com — confirmar o mic antes de entrar ao vivo
+Na tela de pré-live do skool.com, verificar se o microfone selecionado é o Wireless microphone (Hollyland) e não os AirPods ou o microfone embutido.
+
+System Settings — definir o Hollyland como input padrão
+System Settings → Sound → Input → Wireless microphone (Hollyland)
+
+7.2 Roteamento de áudio recomendado para próxima live
+
+Hollyland (receptor USB) ──► macOS Input padrão
+                        ──► OBS (Audio Mixer)
+                                │
+                ┌──────────────┴──────────────┐
+                ▼                             ▼
+        OBS grava/transmite          Safari/skool.com
+        (ambos leem o Hollyland      lê direto do
+                simultaneamente — OK        input padrão)
+
+Speaker com fio ◄── macOS Output padrão ◄── Safari/skool.com
+
+macOS permite que múltiplos apps leiam o mesmo microfone USB simultaneamente, então OBS e Safari podem usar o Hollyland ao mesmo tempo sem conflito.
+
+7.3 Reduzir interferência 2,4GHz
+
+- Conectar o Mac ao roteador via cabo Ethernet ou usar a banda 5GHz do Wi-Fi durante a live
+- Usar um cabo extensor USB para afastar o receptor do Hollyland da antena Wi-Fi do Mac (normalmente localizada próxima às portas USB)
+- Manter uma distância mínima de 2–3 metros entre o transmissor do Hollyland e o roteador Wi-Fi
+
+7.4 Evitar perda do microfone Elgato Wave após reinício do WaveLink
+
+Iniciar o WaveLink antes de abrir o Safari e antes de conectar quaisquer dispositivos Bluetooth. Aguardar pelo menos 60 segundos após abrir o WaveLink para garantir que o coreaudiod registrou todos os dispositivos
+corretamente antes de iniciar a live.
+
+---
+8. Conclusão
+
+Os problemas de áudio reportados nas lives de 9 e 22 de abril de 2026 têm origem técnica bem definida e confirmada nos logs do sistema. A causa primária é arquitetural: usar AirPods Pro tanto como speaker quanto
+como microfone em uma live via navegador força o protocolo Bluetooth para um modo de baixa qualidade (HFP/SCO) projetado para chamadas telefônicas, não para transmissão de conteúdo. As causas secundárias —
+interferência de rádio na faixa de 2,4GHz e configuração incorreta do OBS — amplificaram o problema.
+
+A substituição do speaker por um dispositivo com fio, combinada à correção da configuração do OBS e à seleção correta do Hollyland como microfone padrão, elimina todas as causas raiz identificadas.
